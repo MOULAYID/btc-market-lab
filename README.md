@@ -114,7 +114,7 @@ This bundled scenario illustrates how execution delay determines trading success
 3. Notice that **Run A** is configured with `delay = 100 ms` and **Run B** has `delay = 500 ms`.
 4. Click the **"First difference"** button. The simulator jumps straight to the exact moment where the two runs diverge:
    - **At timestamp 2.500s:** A sudden upward move in BTC is detected on Binance. Signal `#49` is triggered to buy market `m0` ("Bitcoin above $67,500 today?") with an entry limit of **$0.56**.
-   - **At timestamp 2.600s (Run A arrives after 100 ms):** The best ask on `m0` is still **$0.54** (24 shares available). Since $\$0.54 \le \$0.56$, Run A **Fills 20 shares @ $0.54**!
+   - **At timestamp 2.600s (Run A arrives after 100 ms):** The best ask on `m0` is still **$0.54** (24 shares available). Since $0.54 ≤ $0.56, Run A **Fills 20 shares @ $0.54**!
    - **At timestamp 2.740s:** A market event arrives; another participant buys out the cheap shares and the best ask jumps to **$0.59**.
    - **At timestamp 3.000s (Run B arrives after 500 ms):** The best ask is now **$0.59**. Since $\$0.59 > \$0.56$, Run B **Misses** (`No visible liquidity within limit`).
 5. **Key Takeaway:** Run A and Run B saw the exact same initial signal, but Run B was 400 ms too slow and missed the fill completely.
@@ -127,16 +127,16 @@ What happens if you want to buy more shares than are available at the top of the
 
 1. In **Replay**, select **Visible depth** from the scenario list.
 2. In this scenario, **Run A** orders **20 shares**, while **Run B** orders **80 shares** with a limit price of **$0.56**.
-3. Let's look at the order book ladder at order arrival ($t = 2.600\text{s}$):
+3. Let's look at the order book ladder at order arrival (t = 2.600s):
    - Level 1: Ask **$0.54** — 24 shares available
    - Level 2: Ask **$0.56** — 42 shares available
    - Level 3: Ask **$0.58** — 14 shares available
 4. **Execution breakdown for Run B (80 shares):**
-   - It takes all **24 shares at $0.54** ($24 \times 0.54 = \$12.96$)
-   - It takes all **42 shares at $0.56** ($42 \times 0.56 = \$23.52$)
-   - Total shares obtained = $24 + 42 = \mathbf{66\text{ shares}}$
-   - Total cost = $\$12.96 + \$23.52 = \$36.48$
-   - Weighted average price = $\$36.48 / 66 = \mathbf{\$0.5527}$
+   - It takes all **24 shares at $0.54** (24 × $0.54 = $12.96)
+   - It takes all **42 shares at $0.56** (42 × $0.56 = $23.52)
+   - Total shares obtained = 24 + 42 = **66 shares**
+   - Total cost = $12.96 + $23.52 = $36.48
+   - Weighted average price = $36.48 / 66 = **$0.5527**
    - The remaining 14 shares cannot be filled because Level 3 is priced at **$0.58**, which exceeds our limit of **$0.56**.
 5. **Outcome:** Run B receives a **Partial Fill of 66 shares @ avg $0.5527** with the reason `"Visible size or risk budget exhausted"`.
 
@@ -207,8 +207,10 @@ btc-market-lab/
 ### Key Engineering Features in `engine.py`
 - **Zero Lookahead Bias:** Prevents optimistic fills caused by future-dated quotes or clock drift (`0 <= arrival - quote_time <= freshness`).
 - **Liquidity Tracking Across Updates:** Consumed shares are decremented and carried forward across identical snapshots, preventing double-counted depth.
-- **Strict Decimal Accounting:** All P&L, fees, and cost basis calculations adhere to Python `Decimal`, enforcing the identity:
-  $$\text{Total Equity} \equiv \text{Cash} + \text{Cost Basis} + \text{Unrealized P&L} \equiv \$1,000 + \text{Realized P&L} + \text{Unrealized P&L}$$
+- **Strict Decimal Accounting:** All P&L, fees, and cost basis calculations adhere to Python `Decimal`, enforcing the strict accounting identity:
+  ```text
+  Total Equity == Cash + Cost Basis + Unrealized P&L == $1,000 + Realized P&L + Unrealized P&L
+  ```
 
 ---
 
