@@ -78,4 +78,62 @@ class Execution(unittest.TestCase):
         self.assertEqual(len(run(x,22000).markets),50)
         self.assertEqual([e['seq'] for e in x],list(range(1,len(x)+1)))
 
+    def test_future_quote_prevention(self):
+        # 1. Signal time: Book quote arrives with future timestamp (t=200 > signal t=50)
+        ev_sig=[
+            dict(seq=1, t=0, kind='market', m='m', meta={'close': 10000}),
+            dict(seq=2, t=0, kind='trade', price='100'),
+            dict(seq=3, t=200, kind='book', m='m', bids=[['.49','20']], asks=[['.50','20']]),
+            dict(seq=4, t=50, kind='trade', price='101'),
+        ]
+        x_sig = run(ev_sig, 500, Config(delay=50, window=10))
+        self.assertEqual(len(x_sig.signals), 1)
+        self.assertFalse(x_sig.signals[0]['accepted'])
+        self.assertEqual(x_sig.signals[0]['reason'], 'Quote from future at signal')
+
+        # 2. Arrival time: Book timestamp is ahead of order arrival
+        ev_arr=[
+            dict(seq=1, t=0, kind='market', m='m', meta={'close': 10000}),
+            dict(seq=2, t=0, kind='trade', price='100'),
+            dict(seq=3, t=40, kind='book', m='m', bids=[['.49','20']], asks=[['.50','20']]),
+            dict(seq=4, t=50, kind='trade', price='101'), # arrival at 100
+        ]
+        x_arr = Engine(Config(delay=50, window=10))
+        for e in ev_arr: x_arr.ingest(e)
+        x_arr.books['m']['t'] = 150 # future quote at arrival
+        x_arr.advance(200)
+        self.assertEqual(len(x_arr.orders), 1)
+        self.assertEqual(x_arr.orders[0]['outcome'], 'Missed')
+        self.assertEqual(x_arr.orders[0]['reason'], 'Quote from future at arrival')
+
+    def test_close_none_and_after_close(self):
+        # Ensure meta['close'] = None does not trigger TypeError
+        ev=[
+            dict(seq=1, t=0, kind='market', m='m', meta={'close': None}),
+            dict(seq=2, t=0, kind='trade', price='100'),
+            dict(seq=3, t=100, kind='book', m='m', bids=[['.49','20']], asks=[['.50','20']]),
+            dict(seq=4, t=1000, kind='trade', price='101'),
+        ]
+        x = run(ev, 1500)
+        self.assertEqual(x.orders[0]['outcome'], 'Filled')
+
+        # Order arriving after explicit market close is rejected
+        ev_closed=[
+            dict(seq=1, t=0, kind='market', m='m', meta={'close': 1050}),
+            dict(seq=2, t=0, kind='trade', price='100'),
+            dict(seq=3, t=100, kind='book', m='m', bids=[['.49','20']], asks=[['.50','20']]),
+            dict(seq=4, t=1000, kind='trade', price='101'), # arrival 1100 > close 1050
+        ]
+        x_closed = run(ev_closed, 1500)
+        self.assertEqual(x_closed.orders[0]['reason'], 'Market closed at arrival')
+
+    def test_pl_reconciliation_identity(self):
+        ev=fixture()
+        x=run(ev, 22000, Config(hold=500, fee=10))
+        m=x.metrics()
+        # Equity == 1000 + Realized + Unrealized
+        self.assertAlmostEqual(m['equity'], 1000.0 + m['realized'] + m['unrealized'], places=5)
+        # Cash + Cost basis == 1000 + Realized
+        self.assertAlmostEqual(m['cash'] + m['exposure'], 1000.0 + m['realized'], places=5)
+
 if __name__=='__main__': unittest.main()

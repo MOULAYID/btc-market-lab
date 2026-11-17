@@ -59,7 +59,7 @@ class Engine:
         for m,(qty,basis) in self.positions.items():
             if not qty: continue
             b=self.books.get(m)
-            bid=max(b['bids'],default=D(0)) if b and b['valid'] and self.clock-b['t']<=self.cfg.freshness else D(0)
+            bid=max(b['bids'],default=D(0)) if b and b['valid'] and 0<=self.clock-b['t']<=self.cfg.freshness else D(0)
             mark=bid*qty if bid else basis
             marked+=mark
             cost+=basis
@@ -106,8 +106,10 @@ class Engine:
         reason=''
         meta=self.markets[m]
         q=self.quote(m,t)
-        if meta.get('closed') or t>=meta.get('close',float('inf')): reason='Market closed at arrival'
+        close_t=meta.get('close')
+        if meta.get('closed') or (close_t is not None and t>=close_t): reason='Market closed at arrival'
         elif not b or not b['valid']: reason='No valid book at arrival'
+        elif b['t']>t: reason='Quote from future at arrival'
         elif t-b['t']>c.freshness: reason='Quote stale at arrival'
         else:
             rate=d(c.fee)/10000
@@ -198,10 +200,12 @@ class Engine:
                     if not meta.get('strategy',True): continue
                     c=self.cfg
                     q=self.quote(token,t)
+                    close_t=meta.get('close')
                     if move<d(c.threshold): reason='Below BTC move threshold'
                     elif t-self.last.get(token,-10**12)<c.cooldown: reason='Cooldown active'
-                    elif meta.get('closed') or t>=meta.get('close',float('inf')): reason='Market closed'
+                    elif meta.get('closed') or (close_t is not None and t>=close_t): reason='Market closed'
                     elif not q or not q['valid']: reason='Waiting for valid book'
+                    elif q['age']<0: reason='Quote from future at signal'
                     elif q['age']>c.freshness: reason='Quote stale at signal'
                     elif not q['asks'] or d(q['asks'][0][0])>d(c.limit): reason='Ask above entry limit'
                     else: reason=''
