@@ -1,5 +1,10 @@
 # BTC Market Lab 🧪⚡
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-btc--market--lab.onrender.com-success?style=for-the-badge&logo=render)](https://btc-market-lab.onrender.com)
+[![GitHub Repo](https://img.shields.io/badge/GitHub-MOULAYID%2Fbtc--market--lab-blue?style=for-the-badge&logo=github)](https://github.com/MOULAYID/btc-market-lab)
+
+> 🚀 **Live Dashboard:** Experience the terminal live in your browser at **[https://btc-market-lab.onrender.com](https://btc-market-lab.onrender.com)**!
+
 An interactive research terminal and replay simulator for studying latency arbitrage between **Bitcoin spot price moves (Binance)** and **prediction market order books (Polymarket)**.
 
 Designed for quantitative researchers, algorithm developers, and curious beginners alike, BTC Market Lab lets you visualize, test, and measure how execution speed, order size, and depth liquidity impact trading outcomes—all in a 100% risk-free, local paper trading environment.
